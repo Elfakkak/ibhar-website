@@ -1,0 +1,8 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { collections, products } from '@/lib/catalogue';
+import { ProductCard, ProjectCTA } from '@/components/site';
+export function generateStaticParams(){return collections.map(c=>({slug:c.slug}));}
+export async function generateMetadata({params}:{params:Promise<{slug:string}>}):Promise<Metadata>{const {slug}=await params; const collection=collections.find(c=>c.slug===slug);return collection?{title:collection.seo,description:collection.description,alternates:{canonical:`/collections/${slug}`}}:{};}
+export default async function Collection({params}:{params:Promise<{slug:string}>}){const {slug}=await params;const c=collections.find(c=>c.slug===slug);if(!c)notFound();return <><div className="wrap"><nav className="breadcrumbs" aria-label="Fil d’Ariane"><Link href="/">Accueil</Link><span>/</span><span>{c.name}</span></nav><div className="page-intro"><span className="eyebrow">Collection {c.number} <i /></span><h1>{c.name}</h1><p>{c.description}</p></div><div className="product-grid">{products.filter(p=>p.collection===slug).map(p=><ProductCard product={p} key={p.slug}/>)}</div><p className="image-note">Propositions de collection illustrées. Les caractéristiques, tarifs et disponibilités sont confirmés sur devis.</p><div className="collection-context"><h2>Un ensemble cohérent,<br /><em>jusque dans les détails.</em></h2><p>Votre projet peut réunir plusieurs supports. Précisez votre quantité souhaitée, votre échéance et les éléments de votre identité visuelle. Le choix des papiers, du marquage et des accessoires sera étudié pour garder une continuité entre vos pièces.</p></div></div><ProjectCTA/></>;}
