@@ -8,3 +8,4 @@ next-env.d.ts
 dist/
 review/
 .DS_Store
+supabase/.temp/

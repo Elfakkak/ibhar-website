@@ -1,7 +1,15 @@
--- Proposed schema for the website's dedicated Supabase project.
--- NOT APPLIED. Review the target database before running.
+-- Applied to IBHAR ADS on 2026-10-28; do not replay.
+-- Login and generated password provisioned separately, never stored in source.
+-- Target: quuaxpnaugcmburokhko. Fail on name collisions; never replace objects.
+-- No manager tables, policies, auth settings or default privileges are modified.
 begin;
-create table public.website_quote_requests (
+set local lock_timeout = '3s';
+set local statement_timeout = '15s';
+create role ibhar_website_writer nologin noinherit nosuperuser nocreatedb
+  nocreaterole noreplication nobypassrls;
+create schema ibhar_website;
+revoke all on schema ibhar_website from public, anon, authenticated, service_role;
+create table ibhar_website.quote_requests (
   request_id uuid primary key,
   created_at timestamptz not null default now(),
   consent_at timestamptz not null,
@@ -17,26 +25,19 @@ create table public.website_quote_requests (
   phone text not null default '' check (char_length(phone)<=30),
   status text not null default 'new' check (status in ('new','contacted','quoted','closed'))
 );
-alter table public.website_quote_requests enable row level security;
-revoke all on public.website_quote_requests from anon, authenticated;
-grant insert on public.website_quote_requests to service_role;
--- No public policies: quote requests must never be readable from the browser.
-create index website_quote_requests_created_idx on public.website_quote_requests (created_at desc);
-
--- Future managed catalogue: drafts remain inaccessible to visitors.
--- The first preview currently uses src/lib/catalogue.ts, not this table.
-create table public.website_products (
-  slug text primary key,
-  collection text not null,
-  name text not null,
-  description text not null,
-  image_path text,
-  options jsonb not null default '[]'::jsonb,
-  published boolean not null default false,
-  updated_at timestamptz not null default now()
-);
-alter table public.website_products enable row level security;
-revoke all on public.website_products from anon, authenticated;
-grant select on public.website_products to anon, authenticated;
-create policy published_catalogue_read on public.website_products for select to anon, authenticated using (published = true);
+alter table ibhar_website.quote_requests enable row level security;
+alter table ibhar_website.quote_requests force row level security;
+revoke all on ibhar_website.quote_requests from public, anon, authenticated, service_role;
+grant usage on schema ibhar_website to ibhar_website_writer;
+grant insert on ibhar_website.quote_requests to ibhar_website_writer;
+create policy website_insert_only on ibhar_website.quote_requests
+  for insert to ibhar_website_writer with check (status = 'new');
+create index website_quote_requests_created_idx
+  on ibhar_website.quote_requests (created_at desc);
+alter role ibhar_website_writer set statement_timeout = '5s';
+alter role ibhar_website_writer set lock_timeout = '2s';
+alter role ibhar_website_writer set idle_in_transaction_session_timeout = '5s';
+-- LOGIN/password provisioning is deliberately separate; no credential in source.
+-- Do not grant membership in anon, authenticated, service_role or postgres.
+-- Keep this schema outside the exposed Data API schema list.
 commit;

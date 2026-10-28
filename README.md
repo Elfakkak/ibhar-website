@@ -1,6 +1,6 @@
 # IBHAR — premium packaging & stationery website
 
-Standalone Next.js application deployed on Vercel (project `ibhar-website`, repository root `./`), with a prepared server-only Supabase quote adapter. It was split out of the IBHAR Manager repository (`sites/ibhar-packaging`) and has its own dependencies, Git history and Vercel project; it shares no code, database or credentials with IBHAR Manager.
+Standalone Next.js application deployed on Vercel (project `ibhar-website`, repository root `./`), with a restricted server-only PostgreSQL quote adapter. It was split out of the IBHAR Manager repository (`sites/ibhar-packaging`) and has its own dependencies, Git history and Vercel project; it shares no code or credentials with IBHAR Manager. It shares the existing IBHAR ADS Supabase project through an isolated website schema and insert-only login.
 
 ## First version
 
@@ -16,22 +16,34 @@ Standalone Next.js application deployed on Vercel (project `ibhar-website`, repo
 
 Use Node 24. Install the pinned dependencies with `npm ci`, then `npm run build` and `npm start` (port 3018). For ongoing local work, use `npm run dev`.
 
-This repository root is the Vercel root directory. Do not reuse the IBHAR Manager Vercel project or any other business's database or keys.
+This repository root is the Vercel root directory. Do not reuse the IBHAR Manager Vercel project or administrator keys. The shared database uses the isolated access design below.
 
 ## Content status
 
 The product names and photos are illustrative collection proposals, not verified inventory. All generated photographs are labelled as inspiration. No prices, minimum quantities, lead times, customer logos, reviews or certifications have been invented. Confirm the real products, supplier capabilities, product photos and commercial terms before launching.
 
-## Connections still required
+## Connections
 
-The connected Supabase account exposed only an inactive Vyonix project, not the IBHAR database. No remote schema or existing company data was changed.
+Verified on 28 October 2026:
 
-1. Select a dedicated Supabase project; review its existing schema. `database/schema.sql` is a proposal and has NOT been applied. Generate a proper migration with the Supabase CLI when the database is available.
-2. Configure server-only `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the new Vercel project. Never prefix the secret with `NEXT_PUBLIC_`.
-3. Configure Cloudflare Turnstile for the final host using `TURNSTILE_SECRET_KEY` and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. The route verifies hostname and token before writing. Keep quote rows inaccessible to public roles.
-4. Update the privacy notice and real business contact details before enabling online submissions. Set `QUOTE_SUBMISSIONS_ENABLED=true` only after testing real insert, error, duplicate and anti-bot paths in a test environment. The current privacy page describes download-only mode.
-5. The catalogue currently lives in `src/lib/catalogue.ts`. The proposed Supabase product table is not yet connected. Add a server-side published-product query and Storage assets once the catalogue is confirmed.
-6. Configure `NEXT_PUBLIC_SITE_URL`, confirm product copy, domain and indexability, then enable `SITE_INDEXABLE=true` for production only.
+- GitHub: `Elfakkak/ibhar-website`.
+- Vercel: `simos-projects-381039e7/ibhar-website`, project `prj_VC5BPDrKj0gSlJRrgz2uFHQ0i1pz`. The local CLI works; the connector still does not expose this project.
+- Supabase: existing IBHAR ADS project `quuaxpnaugcmburokhko`, region `eu-west-1`. No additional paid project was created.
+- Private schema `ibhar_website`, table `quote_requests`, and restricted login `ibhar_website_writer` have been created. The login has INSERT only, no manager role memberships, no RLS bypass, and short query timeouts. The schema is not exposed through the Data API.
+- `WEBSITE_DATABASE_URL` is a production Secret on the website Vercel project only. Neither manager administrator credentials nor website database credentials are exposed to the browser. Preview deployments have no production database credential.
+- The website uses parameterized PostgreSQL inserts through the verified transaction pooler with certificate and hostname verification, the bundled public Supabase CA certificate, and one pooled connection per process.
+
+The SQL migration was applied explicitly through the Management API, with login credential provisioning performed separately. It was not applied through `db push`; do not replay it or push this standalone repository's migration history over the manager database. The migration intentionally defines a NOLOGIN role so credentials are never stored in source.
+
+Validation: the actual restricted login successfully connected over verified TLS and inserted a synthetic quote inside a rolled-back transaction. Quote reads/deletes and manager reads were denied. Effective SELECT/INSERT/UPDATE/DELETE/TRUNCATE privileges on all 46 manager tables/views were absent. The manager policy fingerprint was unchanged before and after, and no test quotes remain. Shared storage, compute and connection capacity remain a common dependency.
+
+### Remaining before accepting online quotes
+
+1. Configure Cloudflare Turnstile for the final hostname using `TURNSTILE_SECRET_KEY` and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` on the website project.
+2. Confirm real business contact details and update the privacy notice from download-only mode.
+3. Verify the complete form flow (anti-bot success/failure, real save, duplicate request and database failure) before enabling `QUOTE_SUBMISSIONS_ENABLED=true`. It remains false.
+4. Confirm products and commercial terms. The catalogue remains in `src/lib/catalogue.ts`; no extra catalogue table was created.
+5. Configure `NEXT_PUBLIC_SITE_URL` and confirm indexability before enabling `SITE_INDEXABLE=true`.
 
 ## Checks
 
